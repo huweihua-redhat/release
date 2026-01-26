@@ -10,11 +10,14 @@ QUAY_USERNAME="quay"
 QUAY_PASSWORD="password"
 
 #Set Kubeconfig:
+set +x
 cd new-ui-tests 
+which node
+node -v
+corepack --version
 skopeo -v
 oc version
 python3 -V
-terraform version
 (cp -L $KUBECONFIG /tmp/kubeconfig || true) && export KUBECONFIG_PATH=/tmp/kubeconfig
 
 #Create Artifact Directory:
@@ -77,11 +80,12 @@ function reformat_report {
 }
 
 # Install Dependcies defined in packages.json
+yes | yarn set version stable ||true
+echo "nodeLinker: node-modules" >  .yarnrc.yml ||true
 yarn install || true
-yarn add --dev typescript || true
-yarn add --dev cypress-failed-log || true
-yarn add --dev @cypress/grep || true
-yarn global add regctl || true
+
+yarn --version || true
+yarn add --dev regctl || true
 
 #Finally Copy the Junit Testing XML files and Screenshots to /tmp/artifacts
 trap copyArtifacts EXIT
@@ -95,7 +99,6 @@ if [ "${QUAY_PROXY}" = "true" ]; then
 fi
 
 #Trigget Quay NEW UI E2E Testing
-set +x
 quay_route=$(oc get quayregistry quay -n quay-enterprise -o jsonpath='{.status.registryEndpoint}') || true
 echo "The Quay hostname is $quay_route"
 quay_hostname=${quay_route#*//}
@@ -132,7 +135,9 @@ export PATH=${NEW_PATH}
 #NO_COLOR=1 yarn run cypress run -b chrome --reporter cypress-multi-reporters --reporter-options configFile=reporter-config.json --env grepTags='newui --noprowci' || true
 NO_COLOR=1 yarn run cypress run -b chrome --reporter cypress-multi-reporters --reporter-options configFile=reporter-config.json --env grepTags="${NEW_UI_TESTING_COVERAGE}",grepFilterSpecs=true || true 
 
-yarn run jrm  ./quay_new_ui_testing_report.xml ./cypress/results/quay_new_ui_testing_report-* || true
+yarn run cypress run --spec "cypress/integration/quayConsole_general/OCP-54498.ts"
 
-reformat_report "quay_new_ui_testing_report.xml" "Quay New UI Testing" ||true 
+#yarn run jrm  ./quay_new_ui_testing_report.xml ./cypress/results/quay_new_ui_testing_report-* || true
+
+#reformat_report "quay_new_ui_testing_report.xml" "Quay New UI Testing" ||true 
 
